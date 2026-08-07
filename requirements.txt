@@ -1,0 +1,8 @@
+Plaintext
+
+yfinance
+pandas
+matplotlib
+requests
+google-genai
+pillow
