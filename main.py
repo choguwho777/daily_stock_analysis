@@ -7,13 +7,13 @@ import requests
 
 !pip install -q google-genai
 from google import genai
-gemini_api_key = os.environ.get('gemini_api_key')
+gemini_api_key = os.environ.get('GEMINI_API_KEY')
 client = genai.Client(api_key = gemini_api_key)
 
 from PIL import Image
 from IPython.display import display
 
-finnhub_api_key = os.environ.get('finnhub_api_key')
+finnhub_api_key = os.environ.get('FINNHUB_API_KEY')
 
 import smtplib
 from email.mime.multipart import MIMEMultipart
@@ -21,7 +21,7 @@ from email.mime.text import MIMEText
 from email.mime.image import MIMEImage
 from google.genai.errors import ClientError
 SENDER_EMAIL = "sunghyuk45@gmail.com"
-APP_PASSWORD = "nctt qvgr ypiw todl"
+APP_PASSWORD = os.environ.get('APP_PASSWORD')
 RECEIVER_EMAIL = "sunghyuk45@gmail.com"
 
 ## RSI 계산 함수 정의
