@@ -11,7 +11,6 @@ gemini_api_key = os.environ.get('GEMINI_API_KEY')
 client = genai.Client(api_key = gemini_api_key)
 
 from PIL import Image
-from IPython.display import display
 
 finnhub_api_key = os.environ.get('FINNHUB_API_KEY')
 
