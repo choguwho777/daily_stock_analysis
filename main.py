@@ -184,11 +184,11 @@ for ticker_symbol in watchlist:
       reason.append("볼린저 밴드 하단 이탈(과매도)")
     elif today_CLOSE >= today_UB:
       reason.append("볼린저 밴드 상단 돌파(과매수/강한 상승 모멘텀)")
-    # RSI
-    if today_RSI <= 30:
-      reason.append(f"RSI 과매도({today_RSI:.1f})")
-    elif today_RSI >= 70:
-      reason.append(f"RSI 과매수({today_RSI:.1f})")
+    # RSI --- 조건 임시 제외(영양가 X) --- 260811
+    # if today_RSI <= 30:
+      # reason.append(f"RSI 과매도({today_RSI:.1f})")
+    # elif today_RSI >= 70:
+      # reason.append(f"RSI 과매수({today_RSI:.1f})")
     # 분석 리스트 추가
     if reason: scanned_target.append({'ticker': ticker_symbol, 'reason': reason, 'df': df, 'ticker_obj': ticker})
   except Exception as e:
