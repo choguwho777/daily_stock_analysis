@@ -39,30 +39,30 @@ def calculate_RSI(df, period = 14):
   return RSI
 
 ## 뉴스 수집 함수 정의
-def get_finnhub_news(ticker_symbol, limit=3):
-    """Finnhub API를 사용하여 최근 3일간의 종목 뉴스 가져오기"""
+def get_finnhub_news(ticker_symbol, limit = 3):
     today = datetime.date.today()
-    from_date = (today - datetime.timedelta(days=3)).strftime('%y-%m-%d')
-    to_date = today.strftime('%y-%m-%d')
-    
+    from_date = (today - datetime.timedelta(days = 3)).strftime('%Y-%m-%d')
+    to_date = today.strftime('%Y-%m-%d')
+
     url = f"https://finnhub.io/api/v1/company-news?symbol={ticker_symbol}&from={from_date}&to={to_date}&token={finnhub_api_key}"
-    
+
     try:
         res = requests.get(url, timeout=10)
         if res.status_code != 200:
             return f"뉴스 수집 실패 (HTTP status: {res.status_code})\n"
-        
+
         news_data = res.json()
         if not news_data:
             return "최근 관련 뉴스 없음\n"
-        
+
         news_summary = ""
         for i, news in enumerate(news_data[:limit], 1):
             headline = news.get('headline', '제목 없음')
             summary = news.get('summary', '')[:100]
             news_summary += f"{i}. {headline}\n   - {summary}...\n"
-        
+
         return news_summary if news_summary else "최근 관련 뉴스 없음\n"
+
     except Exception as e:
         return f"뉴스 수집 중 오류 발생: {e}\n"
 
