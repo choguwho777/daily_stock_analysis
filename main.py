@@ -93,7 +93,7 @@ def get_finnhub_news(ticker_symbol, limit = 3):
         return f"뉴스 수집 중 오류 발생: {e}\n"
 
 ## API 호출 재시도 함수(503, 409 에러 대응)
-def call_gemini_with_retry(model_name, contents, max_retries=3, delay=10):
+def call_gemini_with_retry(model_name, contents, max_retries = 3, delay = 10):
     for attempt in range(1, max_retries + 1):
         try:
             response = client.models.generate_content(model=model_name, contents=contents)
@@ -381,7 +381,8 @@ for target in scanned_target:
 2. 뉴스 해석: 관련 뉴스 헤드라인이 차트 신호에 미칠 영향(긍정/부정)을 해석하고, 해당 뉴스 헤드라인을 직접 인용하세요.
 3. 리스크 분석: 해당 기업 투자 시 가장 주의해야 할 리스크 3가지(구조적, 정책/규제, 실적 훼손 등)를 제시하세요.
 4. 기업 구조 분석: 제공된 재무 지표(영업이익률, ROE, 부채비율 등)를 바탕으로 기업의 재무 안정성과 캐시카우 특성을 설명하세요.
-5. 산업 구조 분석: 차트 이미지의 주요 지지선/저항선 가격을 기준으로, 단기/중장기 관점의 현실적인 매수가/목표가/손절가 수치와 근거를 제시하세요.
+5. 산업 구조 분석: 속한 섹터 및 산업 내 경쟁 강도와 기업의 시장 지위를 평가하세요.
+6. 투자 가이드: 차트 이미지의 주요 지지선/저항선 가격을 기준으로, 단기/중장기 관점의 현실적인 매수가/목표가/손절가 수치와 근거를 제시하세요.
 
 [형식 요구 사항]
 - 첫 줄은 '[{fund['company_name']}, {t_symbol}]' 형식으로 시작하세요.(인삿말, 서론 등 도입부 문장을 출력하지 마세요.)
