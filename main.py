@@ -96,62 +96,71 @@ def send_email_report(report_list):
   msg['From'] = SENDER_EMAIL
   msg['To'] = RECEIVER_EMAIL
   today_str = datetime.date.today().strftime('%y%m%d')
-  msg['Subject'] = f"[{today_str}] 미국 주식 분석 리포트({len(report_list)}개 종목)"
+  
+  stock_count = sum(1 for item in report_list if item.get('type') != 'macro' and item.get('ticker'))
+  msg['Subject'] = f"[{today_str}] 미국 주식 분석 리포트({stock_count}개 종목)"
+  
   msg_alt = MIMEMultipart("alternative")
   msg.attach(msg_alt)
   # HTML 본문
   html_section = []
   for item in report_list:
-    t_symbol = item.get('ticker')
-    if ticker is None:
-      report_text = item.get('text', '')
-    else:
-      report_text = utem.get('text', '')
-    reason_str = ", ".join(item['reason'])
-    formatted_text = item['text'].replace("\n", "<br>")
-    cid_id = f"{t_symbol}_chart"
+      t_symbol = item.get('ticker')
+      report_text = item.get('text', '').replace("\n", "<br>")
 
-    section = f"""
-    <div style="border: 1px solid #ddd; padding: 15px; margin-bottom: 25px; border-radius: 8px; background-color: #fcfcfc;">
-      <h2 style="color: #1a73e3; margin-top: 0;">[{t_symbol}] {reason_str}</h2>
-      <div style="line-height: 1.6; font-size: 14px; color: #333;">
-        {formatted_text}
-      </div>
-      <br>
-      <div style="text-align: center;">
-        <img src="cid:{cid_id}" style="max-width: 100%; height: auto; border: 1px solid #ccc; border-radius: 4px;">
-      </div>
-    </div>
+      if item.get('type') == 'macro' or not t_symbol:
+          section = f"""
+          <div style="border: 1px solid #1a73e3; padding: 15px; margin-bottom: 25px; border-radius: 8px; background-color: #f0f4f9;">
+            <h2 style="color: #1a73e3; margin-top: 0;">오늘자 매크로 및 증시 상황</h2>
+            <div style="line-height: 1.6; font-size: 14px; color: #333;">
+              {report_text}
+            </div>
+          </div>
+          """
+        else:
+            reason_list = item.get('reason', [])
+            reason_str = ", ".join(reason_list) if isinstance(reason_list, list) else str(reason_list)
+            cid_id = f"{t_symbol}_chart"
+
+            section = f"""
+            <div style="border: 1px solid #ddd; padding: 15px; margin-bottom: 25px; border-radius: 8px; background-color: #fcfcfc;">
+              <h2 style="color: #1a73e3; margin-top: 0;">[{t_symbol}] {reason_str}</h2>
+              <div style="line-height: 1.6; font-size: 14px; color: #333;">
+                {report_text}
+              </div>
+              <br>
+              <div style="text-align: center;">
+                <img src="cid:{cid_id}" style="max-width: 100%; height: auto; border: 1px solid #ccc; border-radius: 4px;">
+              </div>
+            </div>
+            """
+        html_section.append(section)
+
+    full_html = f"""
+    <html>
+      <body style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px;">
+        <h1 style="text-align: center; color: #222;">미국 주식 분석 리포트</h1>
+        <p style="text-align: center; color: #666;">오늘 시장에서 특이 신호가 발견된 종목의 차트 및 분석 리포트입니다.</p>
+        <hr style="border: 0; height: 1px; background: #ccc; margin: 20px 0;">
+        {"".join(html_section)}
+      </body>
+    </html>
     """
-    html_section.append(section)
-
-  full_html = f"""
-  <html>
-    <body style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px;">
-      <h1 style="text-align: center; color: #222;">미국 주식 분석 리포트</h1>
-      <p style="text-align: center; color: #666;">오늘 시장에서 특이 신호가 발견된 종목의 차트 및 분석 리포트입니다.</p>
-      <hr style="border: 0; height: 1px; background: #ccc; margin: 20px 0;">
-      {"".join(html_section)}
-    </body>
-  </html>
-  """
-  msg_alt.attach(MIMEText(full_html, "html", "utf-8"))
+    msg_alt.attach(MIMEText(full_html, "html", "utf-8"))
   # 차트 이미지 삽입
   for item in report_list:
-    t_symbol = item.get('ticker')
-    if ticker is None:
-      report_text = item.get('text', '')
-    else:
-      report_text = utem.get('text', '')
-    cid_id = f"{t_symbol}_chart"
-    image_path = item['image_path']
-    try:
-      with open(image_path, "rb") as f:
-        img = MIMEImage(f.read())
-        img.add_header("Content-ID", f"<{cid_id}>")
-        msg.attach(img)
-    except Exception as e:
-      print(f"{t_symbol} 이미지 첨부 실패: {e}")
+      t_symbol = item.get('ticker')
+      image_path = item.get('image_path')
+        
+      if t_symbol and image_path:
+          cid_id = f"{t_symbol}_chart"
+          try:
+              with open(image_path, "rb") as f:
+                  img = MIMEImage(f.read())
+                  img.add_header("Content-ID", f"<{cid_id}>")
+                  msg.attach(img)
+          except Exception as e:
+              print(f"[{t_symbol}] 이미지 첨부 실패: {e}")
   # SMTP 메일 발송
   try:
     with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
@@ -231,7 +240,7 @@ print(f"{len(scanned_target)}개 종목에서 특이 신호 발견")
 all_report = []
 
 ## 시장 상황 분석 - 받아보고 길면 2~3줄 요약으로 반영
-# 마크로 데이터 수집
+# 매크로 데이터 수집
 try:
     tnx = yf.Ticker("^TNX").history(period="1d")['Close'].iloc[-1]
     spx = yf.Ticker("^GSPC").history(period="5d")['Close']
@@ -242,7 +251,7 @@ except Exception as e:
     print(f"마크로 데이터 수집 실패: {e}")
     macro_info = {"us10y": "N/A", "vix": "N/A", "sp500_1w_change": "N/A"}
 
-prompt = f"""
+prompt_macro = f"""
 당신은 증권사 매크로 분석가입니다.
 제공된 증시 지표를 바탕으로 현재 증시 상황을 분석하세요.
 
@@ -262,59 +271,62 @@ prompt = f"""
 - 항목 구분 시 [1. 차트 분석], [2. 뉴스 해석]과 같은 괄호와 번호를 사용하세요.
 - 각 항목, 문단은 한 줄 공백(줄바꿈)으로만 자연스럽게 구분하세요.(두 줄 공백은 사용하지 마세요.)
 """
-response = client.models.generate_content(model = 'gemini-3.6-flash', contents = [prompt])
-all_report.append({'type': 'macro', 'text': response.text})
+macro_response = client.models.generate_content(model = 'gemini-3.6-flash', contents = [prompt_macro])
+if macro_response:
+    all_report.append({'type': 'macro', 'text': macro_response})
+else:
+    all_report.append({'type': 'macro', 'text': '[매크로 및 증시 상황]\n매크로 분석 실패(서버 응답 지연)'})
 
 for target in scanned_target:
-  t_symbol = target['ticker']
-  t_reason = target['reason']
-  df = target['df']
-  ticker = target['ticker_obj']
+    t_symbol = target['ticker']
+    t_reason = target['reason']
+    df = target['df']
+    ticker = target['ticker_obj']
 
-  ## 차트 표현
-  # 구역 분할 설정
-  fig, (ax1, ax2) = plt.subplots(nrows = 2, ncols = 1, figsize = (6, 4), sharex = True, gridspec_kw={'height_ratios': [3, 1]})
-  # 차트 제목 삽입
-  plt.suptitle(f"[{t_symbol}] CHART", fontsize = 15, fontweight = 'bold')
-  # ax1 / 종가, 이동평균선
-  ax1.plot(df.index, df['Close'], label = 'CLOSE PRICE', color = 'black', alpha = 0.8, linewidth = 1.5)
-  ax1.plot(df.index, df['MA_S'], label = 'MA(5)', color = 'blue', linestyle = '--', linewidth = 1)
-  ax1.plot(df.index, df['MA_L'], label = 'MA(20) / MIDDLE BAND', color = 'brown', linestyle = '--', linewidth = 1.2)
-  # ax1 / 볼린저 밴드
-  ax1.plot(df.index, df['UB'], label = 'UPPER BAND', color = 'gray', linestyle = ':', alpha = 0.7)
-  ax1.plot(df.index, df['LB'], label = 'LOWER BAND', color = 'gray', linestyle = ':', alpha = 0.7)
-  ax1.fill_between(df.index, df['UB'], df['LB'], color = 'gray', alpha = 0.1)
-  # ax1 / 세부 설정
-  ax1.set_ylabel("PRICE($)")
-  ax1.legend(loc = 'upper left')
-  ax1.grid(True, alpha = 0.3)
-  # ax2 / RSI
-  ax2.plot(df.index, df['RSI'], label = 'RSI(14)', color = 'black', linewidth = 1.2)
-  ax2.axhline(70, label = 'OVER BOUGHT(70)', color = 'red', linestyle = '--', alpha = 0.6)
-  ax2.axhline(30, label = 'OVER SOLD(30)', color = 'blue', linestyle = '--', alpha = 0.6)
-  ax2.fill_between(df.index, df['RSI'], 70, where=(df['RSI'] >= 70), color = 'red', alpha = 0.2)
-  ax2.fill_between(df.index, df['RSI'], 30, where=(df['RSI'] <= 30), color = 'blue', alpha = 0.2)
-  # ax2 / 세부 설정
-  ax2.set_ylabel("RSI")
-  ax2.set_ylim(0, 100)
-  ax2.legend(loc = 'upper left')
-  ax2.grid(True, alpha = 0.3)
-  # 여백 최적화
-  plt.tight_layout()
-  # 차트 저장
-  chart_filename = f"{t_symbol}_chart.png"
-  plt.savefig(chart_filename, dpi = 150, bbox_inches = 'tight')
-  plt.close()
+    ## 차트 표현
+    # 구역 분할 설정
+    fig, (ax1, ax2) = plt.subplots(nrows = 2, ncols = 1, figsize = (6, 4), sharex = True, gridspec_kw={'height_ratios': [3, 1]})
+    # 차트 제목 삽입
+    plt.suptitle(f"[{t_symbol}] CHART", fontsize = 15, fontweight = 'bold')
+    # ax1 / 종가, 이동평균선
+    ax1.plot(df.index, df['Close'], label = 'CLOSE PRICE', color = 'black', alpha = 0.8, linewidth = 1.5)
+    ax1.plot(df.index, df['MA_S'], label = 'MA(5)', color = 'blue', linestyle = '--', linewidth = 1)
+    ax1.plot(df.index, df['MA_L'], label = 'MA(20) / MIDDLE BAND', color = 'brown', linestyle = '--', linewidth = 1.2)
+    # ax1 / 볼린저 밴드
+    ax1.plot(df.index, df['UB'], label = 'UPPER BAND', color = 'gray', linestyle = ':', alpha = 0.7)
+    ax1.plot(df.index, df['LB'], label = 'LOWER BAND', color = 'gray', linestyle = ':', alpha = 0.7)
+    ax1.fill_between(df.index, df['UB'], df['LB'], color = 'gray', alpha = 0.1)
+    # ax1 / 세부 설정
+    ax1.set_ylabel("PRICE($)")
+    ax1.legend(loc = 'upper left')
+    ax1.grid(True, alpha = 0.3)
+    # ax2 / RSI
+    ax2.plot(df.index, df['RSI'], label = 'RSI(14)', color = 'black', linewidth = 1.2)
+    ax2.axhline(70, label = 'OVER BOUGHT(70)', color = 'red', linestyle = '--', alpha = 0.6)
+    ax2.axhline(30, label = 'OVER SOLD(30)', color = 'blue', linestyle = '--', alpha = 0.6)
+    ax2.fill_between(df.index, df['RSI'], 70, where=(df['RSI'] >= 70), color = 'red', alpha = 0.2)
+    ax2.fill_between(df.index, df['RSI'], 30, where=(df['RSI'] <= 30), color = 'blue', alpha = 0.2)
+    # ax2 / 세부 설정
+    ax2.set_ylabel("RSI")
+    ax2.set_ylim(0, 100)
+    ax2.legend(loc = 'upper left')
+    ax2.grid(True, alpha = 0.3)
+    # 여백 최적화
+    plt.tight_layout()
+    # 차트 저장
+    chart_filename = f"{t_symbol}_chart.png"
+    plt.savefig(chart_filename, dpi = 150, bbox_inches = 'tight')
+    plt.close()
 
-  chart_img = Image.open(chart_filename)
+    chart_img = Image.open(chart_filename)
 
-  ## 종합 분석
-  # 기업 및 시장 데이터 수집
-  fund = get_fundamental_data(t_symbol)
-  # 뉴스 수집
-  news_summary = get_finnhub_news(t_symbol, limit = 3)
-  # Gemini 분석
-  prompt = f"""
+    ## 종합 분석
+    # 기업 및 시장 데이터 수집
+    fund = get_fundamental_data(t_symbol)
+    # 뉴스 수집
+    news_summary = get_finnhub_news(t_symbol, limit = 3)
+    # Gemini 분석
+    prompt = f"""
 당신은 증권사 기술적 분석가입니다.
 오늘 스캔 결과 [{fund['company_name']}, {t_symbol}] 종목에서 다음과 같은 특이 신호가 발견되었습니다.
 - 내용: {', '.join(t_reason)}
@@ -348,33 +360,33 @@ for target in scanned_target:
 - 항목 구분 시 [1. 차트 분석], [2. 뉴스 해석]과 같은 괄호와 번호를 사용하세요.
 - 각 항목, 문단은 한 줄 공백(줄바꿈)으로만 자연스럽게 구분하세요.(두 줄 공백은 사용하지 마세요.)
 """
-  ## 메일 발송
-  success = False
-  retries = 0
+    ## 메일 발송
+    success = False
+    retries = 0
 
-  while not success and retries < 3:
-    # 정상 작동(발송할 데이터 수집)
-    try:
-      response = client.models.generate_content(model = 'gemini-3.6-flash', contents = [chart_img, prompt])
-      all_report.append({'ticker': t_symbol, 'reason': t_reason, 'text': response.text, 'image_path': chart_filename})
-      print(f"[{t_symbol}] 분석 성공")
-      success = True
-    # 오류 처리
-    except ClientError as e:
-      if "429" in str(e):
-        retries += 1
-        print(f"[{t_symbol}] API 한도 초과(429) / 10초 대기 중({retries}/3)")
-        time.sleep(10)
-      else:
-        print(f"[{t_symbol}] API 오류: {e}")
-        break
-    except Exception as e:
-      print(F"[{t_symbol}] 알 수 없는 오류: {e}")
-      break
+    while not success and retries < 3:
+        # 정상 작동(발송할 데이터 수집)
+        try:
+            response = client.models.generate_content(model = 'gemini-3.6-flash', contents = [chart_img, prompt])
+            all_report.append({'ticker': t_symbol, 'reason': t_reason, 'text': response.text, 'image_path': chart_filename})
+            print(f"[{t_symbol}] 분석 성공")
+            success = True
+        # 오류 처리
+        except ClientError as e:
+            if "429" in str(e):
+                retries += 1
+                print(f"[{t_symbol}] API 한도 초과(429) / 10초 대기 중({retries}/3)")
+                time.sleep(10)
+            else:
+                print(f"[{t_symbol}] API 오류: {e}")
+                break
+        except Exception as e:
+            print(F"[{t_symbol}] 알 수 없는 오류: {e}")
+            break
 
-  time.sleep(4)
+    time.sleep(4)
 # 분석 완료 후 메일 발송
 if all_report:
-  send_email_report(all_report)
+    send_email_report(all_report)
 else:
-  print("분석 종목 없음")
+    print("분석 종목 없음")
