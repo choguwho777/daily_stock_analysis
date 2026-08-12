@@ -41,14 +41,14 @@ def calculate_RSI(df, period = 14):
 
 ## 기업 및 시장 데이터 수집 함수 정의
 def get_fundamental_data(ticker_symbol):
-  ticker = yf.Ticker(ticker_symbol)
-  info = ticker.info
-  def safe_pct(val):
-    return f"{val * 100:.2f}%" if val is not None else "N/A"
-  def safe_num(val, fmt="{:.2f}"):
-    return fmt.format(val) if val is not None else "N/A"
+    ticker = yf.Ticker(ticker_symbol)
+    info = ticker.info
+    def safe_pct(val):
+        return f"{val * 100:.2f}%" if val is not None else "N/A"
+    def safe_num(val, fmt="{:.2f}"):
+        return fmt.format(val) if val is not None else "N/A"
 
-  fundamental = {
+    fundamental = {
     "sector": info.get("sector", "N/A"),
     "industry": info.get("industry", "N/A"),
     "company_name": info.get("shortName", ticker_symbol),
@@ -60,7 +60,7 @@ def get_fundamental_data(ticker_symbol):
     "debt_to_equity": safe_num(info.get("debtToEquity")),
     "market_cap": f"{info.get('marketCap', 0) / 1e9:.2f}B USD" if info.get('marketCap') else "N/A"
   }
-  return fundamental
+    return fundamental
 
 ## 뉴스 수집 함수 정의
 def get_finnhub_news(ticker_symbol, limit = 3):
