@@ -92,31 +92,31 @@ def get_finnhub_news(ticker_symbol, limit = 3):
 
 ## 이메일 발송 함수 정의
 def send_email_report(report_list):
-  msg = MIMEMultipart("related")
-  msg['From'] = SENDER_EMAIL
-  msg['To'] = RECEIVER_EMAIL
-  today_str = datetime.date.today().strftime('%y%m%d')
+    msg = MIMEMultipart("related")
+    msg['From'] = SENDER_EMAIL
+    msg['To'] = RECEIVER_EMAIL
+    today_str = datetime.date.today().strftime('%y%m%d')
   
-  stock_count = sum(1 for item in report_list if item.get('type') != 'macro' and item.get('ticker'))
-  msg['Subject'] = f"[{today_str}] 미국 주식 분석 리포트({stock_count}개 종목)"
+    stock_count = sum(1 for item in report_list if item.get('type') != 'macro' and item.get('ticker'))
+    msg['Subject'] = f"[{today_str}] 미국 주식 분석 리포트({stock_count}개 종목)"
   
-  msg_alt = MIMEMultipart("alternative")
-  msg.attach(msg_alt)
-  # HTML 본문
-  html_section = []
-  for item in report_list:
-      t_symbol = item.get('ticker')
-      report_text = item.get('text', '').replace("\n", "<br>")
+    msg_alt = MIMEMultipart("alternative")
+    msg.attach(msg_alt)
+    # HTML 본문
+    html_section = []
+    for item in report_list:
+        t_symbol = item.get('ticker')
+        report_text = item.get('text', '').replace("\n", "<br>")
 
-      if item.get('type') == 'macro' or not t_symbol:
-          section = f"""
-          <div style="border: 1px solid #1a73e3; padding: 15px; margin-bottom: 25px; border-radius: 8px; background-color: #f0f4f9;">
-            <h2 style="color: #1a73e3; margin-top: 0;">오늘자 매크로 및 증시 상황</h2>
-            <div style="line-height: 1.6; font-size: 14px; color: #333;">
-              {report_text}
+        if item.get('type') == 'macro' or not t_symbol:
+            section = f"""
+            <div style="border: 1px solid #1a73e3; padding: 15px; margin-bottom: 25px; border-radius: 8px; background-color: #f0f4f9;">
+              <h2 style="color: #1a73e3; margin-top: 0;">오늘자 매크로 및 증시 상황</h2>
+              <div style="line-height: 1.6; font-size: 14px; color: #333;">
+                {report_text}
+              </div>
             </div>
-          </div>
-          """
+            """
         else:
             reason_list = item.get('reason', [])
             reason_str = ", ".join(reason_list) if isinstance(reason_list, list) else str(reason_list)
