@@ -1,6 +1,7 @@
 yfinance
 pandas
 matplotlib
+numpy
 requests
 google-genai
 pillow
