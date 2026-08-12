@@ -2,6 +2,7 @@ import os
 import yfinance as yf
 import pandas as pd
 import matplotlib.pyplot as plt
+import numpy as np
 import time
 import datetime
 import requests
@@ -37,6 +38,29 @@ def calculate_RSI(df, period = 14):
   RSI = 100 - (100 / (1 + RS)) # RSI 계산
 
   return RSI
+
+## 기업 및 시장 데이터 수집 함수 정의
+def get_fundamental_data(ticker_symbol):
+  ticker = yf.Ticker(ticker_symbol)
+  info = ticker.info
+  def safe_pct(val):
+    return f"{val * 100:.2f}%" if val is not None else "N/A"
+  def safe_num(val, fmt="{:.2f}"):
+    return fmt.format(val) if val is not None else "N/A"
+
+  fundamental = {
+    "sector": info.get("sector", "N/A"),
+    "industry": info.get("industry", "N/A"),
+    "company_name": info.get("shortName", ticker_symbol),
+    "per": safe_num(info.get("trailingPE")),
+    "pbr": safe_num(info.get("priceToBook")),
+    "roe": safe_pct(info.get("returnOnEquity")),
+    "op_margin": safe_pct(info.get("operatingMargins")),
+    "rev_growth": safe_pct(info.get("revenueGrowth")),
+    "debt_to_equity": safe_num(info.get("debtToEquity")),
+    "market_cap": f"{info.get('marketCap', 0) / 1e9:.2f}B USD" if info.get('marketCap') else "N/A"
+  }
+  return fundamental
 
 ## 뉴스 수집 함수 정의
 def get_finnhub_news(ticker_symbol, limit = 3):
@@ -184,7 +208,7 @@ for ticker_symbol in watchlist:
       reason.append("볼린저 밴드 하단 이탈(과매도)")
     elif today_CLOSE >= today_UB:
       reason.append("볼린저 밴드 상단 돌파(과매수/강한 상승 모멘텀)")
-    # RSI --- 조건 임시 제외(영양가 X) --- 260811
+    # RSI --- 조건 임시 제외 --- 260811
     # if today_RSI <= 30:
       # reason.append(f"RSI 과매도({today_RSI:.1f})")
     # elif today_RSI >= 70:
@@ -197,6 +221,41 @@ for ticker_symbol in watchlist:
 ### 리포트 생성
 print(f"{len(scanned_target)}개 종목에서 특이 신호 발견")
 all_report = []
+
+## 시장 상황 분석 - 받아보고 길면 2~3줄 요약으로 반영
+# 마크로 데이터 수집
+try:
+  tnx = yf.Ticker("^TNX").history(period="1d")['Close'].iloc[-1]
+  spx = yf.Ticker("^GSPC").history(period="5d")['Close']
+  vix = yf.Ticker("^VIX").history(period="1d")['Close'].iloc[-1]
+  spx_return = ((spx.iloc[-1] - spx.iloc[0]) / spx.iloc[0]) * 100
+  return {"us10y": f"{tnx:.2f}%", "vix": f"{vix:.2f}", "sp500_1w_change": f"{spx_return:+.2f}%"}
+except Exception as e:
+  print(f"마크로 데이터 수집 실패: {e}")
+  return {"us10y": "N/A", "vix": "N/A", "sp500_1w_change": "N/A"}
+
+prompt = f"""
+당신은 증권사 매크로 분석가입니다.
+제공된 증시 지표를 바탕으로 현재 증시 상황을 분석하세요.
+
+[증시 지표]
+- 미국 10년물 국채 금리: {macro_info['us10y']}
+- VIX 지수(공포 지수): {macro_info['vix']}
+- S&P 500 최근 1주 변동률: {macro_info['sp500_1w_change']}
+
+[분석 요구 사항]
+1. 유동성 국면, 경기 사이클, 금리 환경 기준으로 현재 증시 상황을 평가하세요.
+2. 지금이 공격적 자산 투자 국면인지, 방어적 자산이 유리한 국면인지 판단하세요.
+3. 현재 금리, 물가, 통화정책 변화가 증시 상황에 미치는 영향을 인과관계를 중심으로 설명하세요.
+
+[형식 요구 사항]
+- 첫 줄은 '[매크로 및 증시 상황]'으로 시작하세요.(인삿말, 서론 등 도입부 문장을 출력하지 마세요.)
+- '**'(볼드체), '---'(구분선), '##'(헤더)와 같은 마크다운 문법을 사용하지 마세요.
+- 항목 구분 시 [1. 차트 분석], [2. 뉴스 해석]과 같은 괄호와 번호를 사용하세요.
+- 각 항목, 문단은 한 줄 공백(줄바꿈)으로만 자연스럽게 구분하세요.(두 줄 공백은 사용하지 마세요.)
+"""
+response = client.models.generate_content(model = 'gemini-3.6-flash', contents = [prompt])
+all_report.append({'type': 'macro', 'text': response.text})
 
 for target in scanned_target:
   t_symbol = target['ticker']
@@ -242,33 +301,44 @@ for target in scanned_target:
   chart_img = Image.open(chart_filename)
 
   ## 종합 분석
+  # 기업 및 시장 데이터 수집
+  fund = get_fundamental_data(t_symbol)
   # 뉴스 수집
   news_summary = get_finnhub_news(t_symbol, limit = 3)
   # Gemini 분석
   prompt = f"""
 당신은 증권사 기술적 분석가입니다.
-오늘 스캔 결과 [{t_symbol}] 종목에서 다음과 같은 특이 신호가 발견되었습니다.
+오늘 스캔 결과 [{fund['company_name']}, {t_symbol}] 종목에서 다음과 같은 특이 신호가 발견되었습니다.
 - 내용: {', '.join(t_reason)}
-첨부된 차트 이미지와 뉴스 헤드라인을 종합적으로 분석하세요.
-어떤 종목(기업명 포함)의 분석 결과인지만 언급하세요.
-제공된 수치와 차트에서 직접 확인 가능한 사실만 기술하세요.
-뉴스가 제공되지 않은 경우, 뉴스 해석 단계에서 상승/하락 원인을 추정하지 마세요.
-매수가/목표가/손절가를 제시하는 경우, 근거를 함께 설명하세요.
-확인되지 않은 기관 수급, 실적, 공시, 뉴스 내용을 임의로 생성하지 마세요.
+
+개인투자자 관점보다는 기관투자자 기준으로 분석하세요.
+기술적 차트 분석은 첨부된 차트 이미지만을 근거로 분석하세요.
+확인되지 않은 수급, 실적, 공시, 뉴스 내용을 임의로 생성하지 마세요.
+모든 분석 및 판단에는 제공된 정보를 포함하여 출처가 명확한 자료만을 활용하세요.
+
+[기업 및 시장 데이터]
+- 기업 / 티커: {fund['company_name']} / {t_symbol}
+- 섹터 / 산업: {fund['sector']} / {fund['industry']}
+- 시가총액: {fund['market_cap']}
+- 밸류에이션: PER({fund['per']}), PBR({fund['pbr']})
+- 수익성 / 성장성: ROE({fund['roe']}), 영업이익률({fund['op_margin']}), 매출 성장률({fund['rev_growth']})
+- 재무 안정성: 부채 비율({fund['debt_to_equity']}%)
 
 [최근 뉴스(Finnhub 제공)]
 {news_summary}
 
 [분석 요구 사항]
-1. 차트 분석: 단순 오늘 수치가 아닌, 최근 몇 달간 주가 추세, 이동평균선 격차(확장/축소), 볼린저 밴드 폭 변동, RSI의 최근 궤적 패턴을 이미지에서 읽어내고 종합적으로 설명하세요.
-2. 뉴스 해석: 관련 뉴스 헤드라인이 이번 차트 신호에 긍정적/부정적 영향을 줄 가능성을 해석하세요. 해석을 제시할 때, 제공받은 뉴스의 헤드라인도 함께 보여주세요.
-3. 종합 판단: 단기 매수 타점/관망/손절선 기준 등 현실적인 투자 가이드를 3~4줄로 요약하여 정리하세요.
+1. 차트 분석: 첨부된 차트 이미지에서 최근 몇 달간의 주가 추세, 이동평균선들의 격차(확장/축소), 볼린저 밴드 폭의 변화, RSI 궤적을 직접 읽어내고 기술적으로 종합 설명하세요.
+2. 뉴스 해석: 관련 뉴스 헤드라인이 차트 신호에 미칠 영향(긍정/부정)을 해석하고, 해당 뉴스 헤드라인을 직접 인용하세요.
+3. 리스크 분석: 해당 기업 투자 시 가장 주의해야 할 리스크 3가지(구조적, 정책/규제, 실적 훼손 등)를 제시하세요.
+4. 기업 구조 분석: 제공된 재무 지표(영업이익률, ROE, 부채비율 등)를 바탕으로 기업의 재무 안정성과 캐시카우 특성을 설명하세요.
+5. 산업 구조 분석: 차트 이미지의 주요 지지선/저항선 가격을 기준으로, 단기/중장기 관점의 현실적인 매수가/목표가/손절가 수치와 근거를 제시하세요.
 
 [형식 요구 사항]
-- '**'와 같은 강조용 볼드체 마크다운 문법을 사용하지 마세요.
-- '---'와 같은 구분선 마크다운 문법을 사용하지 마세요.
-- 제목이나 항복 구분 시 마크다운 헤더('##')를 사용하지 말고, [1. 차트 분석], [2. 뉴스 해석]과 같은 괄호와 번호를 사용하세요.
-- 각 항목이나 문단 사이는 구분선 대신 한 줄 공백(줄바꿈)으로 자연스럽게 구분하세요. 두 줄 공백은 사용하지 마세요.
+- 첫 줄은 '[{fund['company_name']}, {t_symbol}]' 형식으로 시작하세요.(인삿말, 서론 등 도입부 문장을 출력하지 마세요.)
+- '**'(볼드체), '---'(구분선), '##'(헤더)와 같은 마크다운 문법을 사용하지 마세요.
+- 항목 구분 시 [1. 차트 분석], [2. 뉴스 해석]과 같은 괄호와 번호를 사용하세요.
+- 각 항목, 문단은 한 줄 공백(줄바꿈)으로만 자연스럽게 구분하세요.(두 줄 공백은 사용하지 마세요.)
 """
   ## 메일 발송
   success = False
