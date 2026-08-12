@@ -26,7 +26,10 @@ jobs:
 
       - name: Run Script
         env:
-          GEMINI_API_KEY: ${{ secrets.gemini_api_key }}
-          FINNHUB_API_KEY: ${{ secrets.finnhub_api_key }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
+          SENDER_EMAIL: ${{ secrets.SENDER_EMAIL }}
+          RECEIVER_EMAIL: ${{ secrets.RECEIVER_EMAIL }}
+          APP_PASSWORD: ${{ secrets.APP_PASSWORD }}
         run: |
           python main.py
