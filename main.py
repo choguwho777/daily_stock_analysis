@@ -7,21 +7,21 @@ import datetime
 import requests
 
 from google import genai
-gemini_api_key = os.environ.get('GEMINI_API_KEY')
-client = genai.Client(api_key = gemini_api_key)
+GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
+client = genai.Client(api_key = GEMINI_API_KEY)
 
 from PIL import Image
 
-finnhub_api_key = os.environ.get('FINNHUB_API_KEY')
+FINNHUB_API_KEY = os.environ.get('FINNHUB_API_KEY')
 
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.image import MIMEImage
 from google.genai.errors import ClientError
-SENDER_EMAIL = "sunghyuk45@gmail.com"
+SENDER_EMAIL = os.environ.get('SENDER_EMAIL')
+RECEIVER_EMAIL = os.environ.get('RECEIVER_EMAIL')
 APP_PASSWORD = os.environ.get('APP_PASSWORD')
-RECEIVER_EMAIL = "sunghyuk45@gmail.com"
 
 ## RSI 계산 함수 정의
 def calculate_RSI(df, period = 14):
@@ -44,7 +44,7 @@ def get_finnhub_news(ticker_symbol, limit = 3):
     from_date = (today - datetime.timedelta(days = 3)).strftime('%Y-%m-%d')
     to_date = today.strftime('%Y-%m-%d')
 
-    url = f"https://finnhub.io/api/v1/company-news?symbol={ticker_symbol}&from={from_date}&to={to_date}&token={finnhub_api_key}"
+    url = f"https://finnhub.io/api/v1/company-news?symbol={ticker_symbol}&from={from_date}&to={to_date}&token={FINNHUB_API_KEY}"
 
     try:
         res = requests.get(url, timeout=10)
