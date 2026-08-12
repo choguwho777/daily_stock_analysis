@@ -102,7 +102,11 @@ def send_email_report(report_list):
   # HTML 본문
   html_section = []
   for item in report_list:
-    t_symbol = item['ticker']
+    t_symbol = item.get('ticker')
+    if ticker is None:
+      report_text = item.get('text', '')
+    else:
+      report_text = utem.get('text', '')
     reason_str = ", ".join(item['reason'])
     formatted_text = item['text'].replace("\n", "<br>")
     cid_id = f"{t_symbol}_chart"
@@ -134,7 +138,11 @@ def send_email_report(report_list):
   msg_alt.attach(MIMEText(full_html, "html", "utf-8"))
   # 차트 이미지 삽입
   for item in report_list:
-    t_symbol = item['ticker']
+    t_symbol = item.get('ticker')
+    if ticker is None:
+      report_text = item.get('text', '')
+    else:
+      report_text = utem.get('text', '')
     cid_id = f"{t_symbol}_chart"
     image_path = item['image_path']
     try:
