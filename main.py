@@ -11,6 +11,8 @@ from google import genai
 GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
 client = genai.Client(api_key = GEMINI_API_KEY)
 
+from google.genai.errors import APIError, ServerError, ClientError
+
 from PIL import Image
 
 FINNHUB_API_KEY = os.environ.get('FINNHUB_API_KEY')
@@ -90,6 +92,27 @@ def get_finnhub_news(ticker_symbol, limit = 3):
     except Exception as e:
         return f"뉴스 수집 중 오류 발생: {e}\n"
 
+## API 호출 재시도 함수(503, 409 에러 대응)
+def call_gemini_with_retry(model_name, contents, max_retries=3, delay=10):
+    for attempt in range(1, max_retries + 1):
+        try:
+            response = client.models.generate_content(model=model_name, contents=contents)
+            if hasattr(response, 'text') and response.text:
+                return str(response.text)
+            elif isinstance(response, str):
+                return response
+            else:
+                print(f"텍스트 추출 실패 ({attempt}/{max_retries})")
+        except (ServerError, ClientError, APIError, Exception) as e:
+            print(f"API 오류 ({e}) (시도 {attempt}/{max_retries})")
+            if attempt < max_retries:
+                time.sleep(delay)
+            else:
+                print("재시도 횟수 초과")
+                return None
+    return None
+  
+
 ## 이메일 발송 함수 정의
 def send_email_report(report_list):
     msg = MIMEMultipart("related")
@@ -106,7 +129,10 @@ def send_email_report(report_list):
     html_section = []
     for item in report_list:
         t_symbol = item.get('ticker')
-        report_text = item.get('text', '').replace("\n", "<br>")
+        raw_text = item.get('text', '')
+        if hasattr(raw_text, 'text'):
+            raw_text = raw_text.text
+        report_text = str(raw_text).replace("\n", "<br>")
 
         if item.get('type') == 'macro' or not t_symbol:
             section = f"""
@@ -274,9 +300,12 @@ prompt_macro = f"""
 macro_response = client.models.generate_content(model = 'gemini-3.6-flash', contents = [prompt_macro])
 if macro_response:
     all_report.append({'type': 'macro', 'text': macro_response})
+    print("매크로 및 증시 상황 분석 성공")
 else:
     all_report.append({'type': 'macro', 'text': '[매크로 및 증시 상황]\n매크로 분석 실패(서버 응답 지연)'})
+    print("매크로 및 증시 상황 분석 실패")
 
+## 분석 대상 반복문 적용
 for target in scanned_target:
     t_symbol = target['ticker']
     t_reason = target['reason']
@@ -326,7 +355,7 @@ for target in scanned_target:
     # 뉴스 수집
     news_summary = get_finnhub_news(t_symbol, limit = 3)
     # Gemini 분석
-    prompt = f"""
+    prompt_stock = f"""
 당신은 증권사 기술적 분석가입니다.
 오늘 스캔 결과 [{fund['company_name']}, {t_symbol}] 종목에서 다음과 같은 특이 신호가 발견되었습니다.
 - 내용: {', '.join(t_reason)}
@@ -360,30 +389,12 @@ for target in scanned_target:
 - 항목 구분 시 [1. 차트 분석], [2. 뉴스 해석]과 같은 괄호와 번호를 사용하세요.
 - 각 항목, 문단은 한 줄 공백(줄바꿈)으로만 자연스럽게 구분하세요.(두 줄 공백은 사용하지 마세요.)
 """
-    ## 메일 발송
-    success = False
-    retries = 0
-
-    while not success and retries < 3:
-        # 정상 작동(발송할 데이터 수집)
-        try:
-            response = client.models.generate_content(model = 'gemini-3.6-flash', contents = [chart_img, prompt])
-            all_report.append({'ticker': t_symbol, 'reason': t_reason, 'text': response.text, 'image_path': chart_filename})
-            print(f"[{t_symbol}] 분석 성공")
-            success = True
-        # 오류 처리
-        except ClientError as e:
-            if "429" in str(e):
-                retries += 1
-                print(f"[{t_symbol}] API 한도 초과(429) / 10초 대기 중({retries}/3)")
-                time.sleep(10)
-            else:
-                print(f"[{t_symbol}] API 오류: {e}")
-                break
-        except Exception as e:
-            print(F"[{t_symbol}] 알 수 없는 오류: {e}")
-            break
-
+    stock_response = call_gemini_with_retry(model_name='gemini-3.6-flash', contents=[chart_img, prompt_stock])
+    if stock_response:
+        all_report.append({'type': 'stock', 'ticker': t_symbol, 'reason': t_reason, 'text': stock_response, 'image_path': chart_filename})
+        print(f"[{t_symbol}] 분석 성공")
+    else:
+        print(f"[{t_symbol}] 분석 실패(API 오류)")
     time.sleep(4)
 # 분석 완료 후 메일 발송
 if all_report:
