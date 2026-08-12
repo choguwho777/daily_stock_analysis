@@ -148,27 +148,27 @@ def send_email_report(report_list):
     """
     msg_alt.attach(MIMEText(full_html, "html", "utf-8"))
   # 차트 이미지 삽입
-  for item in report_list:
-      t_symbol = item.get('ticker')
-      image_path = item.get('image_path')
+    for item in report_list:
+        t_symbol = item.get('ticker')
+        image_path = item.get('image_path')
         
-      if t_symbol and image_path:
-          cid_id = f"{t_symbol}_chart"
-          try:
-              with open(image_path, "rb") as f:
-                  img = MIMEImage(f.read())
-                  img.add_header("Content-ID", f"<{cid_id}>")
-                  msg.attach(img)
-          except Exception as e:
-              print(f"[{t_symbol}] 이미지 첨부 실패: {e}")
+        if t_symbol and image_path:
+            cid_id = f"{t_symbol}_chart"
+            try:
+                with open(image_path, "rb") as f:
+                    img = MIMEImage(f.read())
+                    img.add_header("Content-ID", f"<{cid_id}>")
+                    msg.attach(img)
+            except Exception as e:
+                print(f"[{t_symbol}] 이미지 첨부 실패: {e}")
   # SMTP 메일 발송
-  try:
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-      server.login(SENDER_EMAIL, APP_PASSWORD)
-      server.sendmail(SENDER_EMAIL, RECEIVER_EMAIL, msg.as_string())
-    print(f"\n[{RECEIVER_EMAIL}] 메일 발송 완료")
-  except Exception as e:
-    print(f"\n메일 발송 실패: {e}")
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+            server.login(SENDER_EMAIL, APP_PASSWORD)
+            server.sendmail(SENDER_EMAIL, RECEIVER_EMAIL, msg.as_string())
+        print(f"\n[{RECEIVER_EMAIL}] 메일 발송 완료")
+    except Exception as e:
+        print(f"\n메일 발송 실패: {e}")
 
 ## 스캔 대상 설정
 watchlist = [ "AAPL", "ABBV", "ABT", "ACN", "ADBE", "AIG", "AMD", "AMGN", "AMT", "AMZN",
