@@ -225,14 +225,14 @@ all_report = []
 ## 시장 상황 분석 - 받아보고 길면 2~3줄 요약으로 반영
 # 마크로 데이터 수집
 try:
-  tnx = yf.Ticker("^TNX").history(period="1d")['Close'].iloc[-1]
-  spx = yf.Ticker("^GSPC").history(period="5d")['Close']
-  vix = yf.Ticker("^VIX").history(period="1d")['Close'].iloc[-1]
-  spx_return = ((spx.iloc[-1] - spx.iloc[0]) / spx.iloc[0]) * 100
-  return {"us10y": f"{tnx:.2f}%", "vix": f"{vix:.2f}", "sp500_1w_change": f"{spx_return:+.2f}%"}
+    tnx = yf.Ticker("^TNX").history(period="1d")['Close'].iloc[-1]
+    spx = yf.Ticker("^GSPC").history(period="5d")['Close']
+    vix = yf.Ticker("^VIX").history(period="1d")['Close'].iloc[-1]
+    spx_return = ((spx.iloc[-1] - spx.iloc[0]) / spx.iloc[0]) * 100
+    return {"us10y": f"{tnx:.2f}%", "vix": f"{vix:.2f}", "sp500_1w_change": f"{spx_return:+.2f}%"}
 except Exception as e:
-  print(f"마크로 데이터 수집 실패: {e}")
-  return {"us10y": "N/A", "vix": "N/A", "sp500_1w_change": "N/A"}
+    print(f"마크로 데이터 수집 실패: {e}")
+    return {"us10y": "N/A", "vix": "N/A", "sp500_1w_change": "N/A"}
 
 prompt = f"""
 당신은 증권사 매크로 분석가입니다.
